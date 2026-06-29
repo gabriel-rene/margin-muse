@@ -11,11 +11,12 @@ const LABELS: Record<PaperTone, string> = {
   candlelight: 'Candle',
 }
 
+const TONES: PaperTone[] = ['daylight', 'cream', 'candlelight']
+
 export default function PaperToneSwitch({ tone, onChange }: Props) {
-  const tones: PaperTone[] = ['daylight', 'cream', 'candlelight']
   return (
     <div className="flex gap-1 text-xs" style={{ fontFamily: 'var(--font-muse)' }}>
-      {tones.map((t) => (
+      {TONES.map((t) => (
         <button
           key={t}
           onClick={() => onChange(t)}
