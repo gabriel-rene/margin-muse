@@ -1,21 +1,30 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { FocusDepthExtension } from '@/lib/focus-extension'
 import MusePicker from '@/components/MusePicker'
 import { type PersonaId } from '@/lib/personas'
+import { initAudio, playTypingSound } from '@/lib/sound'
 
 interface Props {
   onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
   loading?: boolean
+  soundEnabled?: boolean
 }
 
-export default function Editor({ onMusePick, loading = false }: Props) {
+export default function Editor({ onMusePick, loading = false, soundEnabled = false }: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
+  const audioRef = useRef<AudioContext | null>(null)
+
+  useEffect(() => {
+    if (soundEnabled && !audioRef.current) {
+      audioRef.current = initAudio()
+    }
+  }, [soundEnabled])
 
   const handleSelectionUpdate = useCallback(() => {
     const sel = window.getSelection()
@@ -39,6 +48,12 @@ export default function Editor({ onMusePick, loading = false }: Props) {
     editorProps: {
       attributes: {
         class: 'focus:outline-none min-h-[60vh]',
+      },
+      handleKeyDown: () => {
+        if (soundEnabled && audioRef.current) {
+          playTypingSound(audioRef.current)
+        }
+        return false // don't intercept the key
       },
     },
   })
