@@ -4,7 +4,6 @@ import { describe, it, expect, vi } from 'vitest'
 const mockConnect = vi.fn()
 const mockStart = vi.fn()
 const mockStop = vi.fn()
-const mockDisconnect = vi.fn()
 
 const mockOscillator = {
   connect: mockConnect,

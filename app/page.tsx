@@ -74,7 +74,12 @@ export default function Home() {
   return (
     <main className="flex min-h-screen gap-8 px-8 py-12 max-w-6xl mx-auto">
       <div className="flex-1 min-w-0">
-        <Editor onMusePick={handleMusePick} loading={loading} soundEnabled={soundEnabled} />
+        <Editor
+          onMusePick={handleMusePick}
+          loading={loading}
+          soundEnabled={soundEnabled}
+          audioCtx={audioRef.current}
+        />
       </div>
       <MarginRail notes={notes} onDismiss={dismissNote} railRef={marginRailRef} />
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">

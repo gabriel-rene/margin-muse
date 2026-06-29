@@ -1,30 +1,27 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { FocusDepthExtension } from '@/lib/focus-extension'
 import MusePicker from '@/components/MusePicker'
 import { type PersonaId } from '@/lib/personas'
-import { initAudio, playTypingSound } from '@/lib/sound'
+import { playTypingSound } from '@/lib/sound'
 
 interface Props {
   onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
   loading?: boolean
   soundEnabled?: boolean
+  // The AudioContext is owned and lazily created by the parent (on the
+  // sound-toggle gesture). Editor only plays through it — it never constructs
+  // one, so there is a single context for the whole app.
+  audioCtx?: AudioContext | null
 }
 
-export default function Editor({ onMusePick, loading = false, soundEnabled = false }: Props) {
+export default function Editor({ onMusePick, loading = false, soundEnabled = false, audioCtx = null }: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
-  const audioRef = useRef<AudioContext | null>(null)
-
-  useEffect(() => {
-    if (soundEnabled && !audioRef.current) {
-      audioRef.current = initAudio()
-    }
-  }, [soundEnabled])
 
   const handleSelectionUpdate = useCallback(() => {
     const sel = window.getSelection()
@@ -50,8 +47,8 @@ export default function Editor({ onMusePick, loading = false, soundEnabled = fal
         class: 'focus:outline-none min-h-[60vh]',
       },
       handleKeyDown: () => {
-        if (soundEnabled && audioRef.current) {
-          playTypingSound(audioRef.current)
+        if (soundEnabled && audioCtx) {
+          playTypingSound(audioCtx)
         }
         return false // don't intercept the key
       },
