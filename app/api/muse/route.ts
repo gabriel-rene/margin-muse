@@ -5,8 +5,20 @@ import { validateMuseOutput } from '@/lib/muse-validation'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// This route is an unauthenticated proxy to a paid API. Bound every input so a
+// hostile caller can't run up token cost or DoS the parser with a huge body.
+const MAX_BODY_BYTES = 64_000 // selection + a window of context, never a whole doc
+const MAX_TEXT_CHARS = 8_000 // the selected passage
+const MAX_CONTEXT_CHARS = 3_000 // surrounding context actually sent to the model
+
 export async function POST(req: NextRequest) {
-  let body: { text?: string; persona?: PersonaId; context?: string }
+  // Reject oversized bodies before we even parse them.
+  const declaredLength = Number(req.headers.get('content-length') ?? 0)
+  if (declaredLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 })
+  }
+
+  let body: { text?: unknown; persona?: unknown; context?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -15,13 +27,23 @@ export async function POST(req: NextRequest) {
 
   const { text, persona, context } = body
 
-  if (!text || !persona || !PERSONAS[persona]) {
+  // Validate types and the persona allow-list, not just truthiness.
+  if (
+    typeof text !== 'string' ||
+    text.trim().length === 0 ||
+    text.length > MAX_TEXT_CHARS ||
+    typeof persona !== 'string' ||
+    !(persona in PERSONAS) ||
+    (context !== undefined && typeof context !== 'string')
+  ) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const personaDef = PERSONAS[persona]
-  const userMessage = context
-    ? `Document context (do not comment on this, only use it to understand the selected passage):\n\n${context.slice(0, 3000)}\n\n---\n\nSelected passage:\n\n${text}`
+  const personaDef = PERSONAS[persona as PersonaId]
+  const boundedContext =
+    typeof context === 'string' ? context.slice(0, MAX_CONTEXT_CHARS) : ''
+  const userMessage = boundedContext
+    ? `Document context (do not comment on this, only use it to understand the selected passage):\n\n${boundedContext}\n\n---\n\nSelected passage:\n\n${text}`
     : `Selected passage:\n\n${text}`
 
   try {
