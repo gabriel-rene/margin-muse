@@ -20,12 +20,21 @@ export default function Home() {
   const marginRailRef = useRef<HTMLElement>(null)
   const audioRef = useRef<AudioContext | null>(null)
 
-  // Load notes on mount
+  // Load notes AFTER mount, not via a useState(() => loadNotes()) lazy
+  // initializer. localStorage is read post-hydration on purpose: a lazy
+  // initializer would run during SSR (where it returns []) and again on the
+  // client (where it returns the stored notes), producing a hydration
+  // mismatch. Reading in an effect keeps the server and first client render
+  // identical (both []), then fills in the stored notes once mounted.
   useEffect(() => {
     setNotes(loadNotes())
   }, [])
 
-  // Persist notes on every change
+  // Persist notes on every change. This fires once on mount with the initial
+  // [] before the load effect's setNotes resolves, so localStorage is briefly
+  // written empty and then immediately rewritten with the loaded notes on the
+  // next render — a harmless redundant write, not data loss (the loaded value
+  // already lives in React state before the empty write reaches disk).
   useEffect(() => {
     saveNotes(notes)
   }, [notes])
