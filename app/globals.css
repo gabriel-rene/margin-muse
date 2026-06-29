@@ -59,3 +59,29 @@ body::before {
   pointer-events: none;
   height: 0;
 }
+
+/* Focus depth — paragraphs dim as they recede from cursor */
+.editor-wrap .tiptap p {
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.editor-wrap .tiptap p[data-focus="current"] {
+  opacity: 1;
+  filter: none;
+}
+
+.editor-wrap .tiptap p[data-focus="near"] {
+  opacity: 0.72;
+  filter: none;
+}
+
+.editor-wrap .tiptap p[data-focus="far"] {
+  opacity: 0.45;
+  filter: blur(0.3px);
+}
+
+/* When editor has no focus at all, show everything at full opacity */
+.editor-wrap .tiptap:not(:focus-within) p {
+  opacity: 1;
+  filter: none;
+}
