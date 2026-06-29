@@ -79,7 +79,7 @@ export default function Editor({
     if (lastContentKey.current === contentKey) return
     lastContentKey.current = contentKey
     applyingExternalContent.current = true
-    editor.commands.setContent(content, false)
+    editor.commands.setContent(content, { emitUpdate: false })
     applyingExternalContent.current = false
   }, [content, contentKey, editor])
 
