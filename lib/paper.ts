@@ -10,21 +10,21 @@ export interface PaperToneTokens {
 export const PAPER_TONES: Record<PaperTone, PaperToneTokens> = {
   daylight: {
     '--paper-bg': '#f5f2ec',
-    '--paper-ink': '#2c2825',
-    '--paper-muse-ink': '#6b5e50',
-    '--paper-grain-opacity': '0.035',
+    '--paper-ink': '#2b2927',
+    '--paper-muse-ink': '#665e58',
+    '--paper-grain-opacity': '0.09',
   },
   cream: {
     '--paper-bg': '#f0ead8',
-    '--paper-ink': '#2c2520',
-    '--paper-muse-ink': '#7a6a58',
-    '--paper-grain-opacity': '0.045',
+    '--paper-ink': '#2c2826',
+    '--paper-muse-ink': '#6f6660',
+    '--paper-grain-opacity': '0.11',
   },
   candlelight: {
     '--paper-bg': '#e8d9b8',
-    '--paper-ink': '#2a2018',
-    '--paper-muse-ink': '#8a7260',
-    '--paper-grain-opacity': '0.06',
+    '--paper-ink': '#2b2820',
+    '--paper-muse-ink': '#7a7068',
+    '--paper-grain-opacity': '0.14',
   },
 }
 

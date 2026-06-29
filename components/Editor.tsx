@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -8,22 +8,31 @@ import { FocusDepthExtension } from '@/lib/focus-extension'
 import MusePicker from '@/components/MusePicker'
 import { type PersonaId } from '@/lib/personas'
 import { playTypingSound } from '@/lib/sound'
-import { saveDocument, loadDocument } from '@/lib/storage'
+import { EMPTY_TIPTAP_DOC, type TiptapDoc } from '@/lib/note-types'
 
 interface Props {
+  contentKey: string | null
+  content: TiptapDoc | null
+  onContentChange: (content: TiptapDoc) => void
   onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
   loading?: boolean
   soundEnabled?: boolean
-  // The AudioContext is owned and lazily created by the parent (on the
-  // sound-toggle gesture). Editor only plays through it — it never constructs
-  // one, so there is a single context for the whole app.
   audioCtx?: AudioContext | null
 }
 
-export default function Editor({ onMusePick, loading = false, soundEnabled = false, audioCtx = null }: Props) {
+export default function Editor({
+  contentKey,
+  content,
+  onContentChange,
+  onMusePick,
+  loading = false,
+  soundEnabled = false,
+  audioCtx = null,
+}: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const applyingExternalContent = useRef(false)
+  const lastContentKey = useRef<string | null>(null)
 
   const handleSelectionUpdate = useCallback(() => {
     const sel = window.getSelection()
@@ -42,28 +51,37 @@ export default function Editor({ onMusePick, loading = false, soundEnabled = fal
       Placeholder.configure({ placeholder: 'Begin writing…' }),
       FocusDepthExtension,
     ],
-    content: loadDocument() ?? '',
+    content: content ?? EMPTY_TIPTAP_DOC,
     onSelectionUpdate: handleSelectionUpdate,
     onUpdate: ({ editor: e }) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => saveDocument(e.getHTML()), 800)
+      if (!applyingExternalContent.current) {
+        onContentChange(e.getJSON() as TiptapDoc)
+      }
     },
     editorProps: {
       attributes: {
         class: 'focus:outline-none min-h-[60vh]',
       },
-      handleKeyDown: () => {
-        if (soundEnabled && audioCtx) {
+      handleKeyDown: (_view, event) => {
+        if (soundEnabled && audioCtx && event.key.length === 1) {
           playTypingSound(audioCtx)
         }
-        return false // don't intercept the key
+        return false
       },
     },
   })
 
+  useEffect(() => {
+    if (!editor || !content) return
+    if (lastContentKey.current === contentKey) return
+    lastContentKey.current = contentKey
+    applyingExternalContent.current = true
+    editor.commands.setContent(content, { emitUpdate: false })
+    applyingExternalContent.current = false
+  }, [content, contentKey, editor])
+
   function handlePick(persona: PersonaId) {
     if (!pickerRect) return
-    // Pass raw viewport top — page.tsx converts to rail-relative offset
     const anchorViewportTop = pickerRect.top
     setPickerRect(null)
     const context = editor?.getText() ?? ''
@@ -82,11 +100,7 @@ export default function Editor({ onMusePick, loading = false, soundEnabled = fal
       )}
       <EditorContent editor={editor} />
       {pickerRect && !loading && (
-        <MusePicker
-          anchorRect={pickerRect}
-          onPick={handlePick}
-          onClose={() => setPickerRect(null)}
-        />
+        <MusePicker anchorRect={pickerRect} onPick={handlePick} onClose={() => setPickerRect(null)} />
       )}
     </div>
   )
