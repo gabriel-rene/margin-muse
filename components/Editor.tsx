@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -8,6 +8,7 @@ import { FocusDepthExtension } from '@/lib/focus-extension'
 import MusePicker from '@/components/MusePicker'
 import { type PersonaId } from '@/lib/personas'
 import { playTypingSound } from '@/lib/sound'
+import { saveDocument, loadDocument } from '@/lib/storage'
 
 interface Props {
   onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
@@ -22,6 +23,7 @@ interface Props {
 export default function Editor({ onMusePick, loading = false, soundEnabled = false, audioCtx = null }: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleSelectionUpdate = useCallback(() => {
     const sel = window.getSelection()
@@ -40,8 +42,12 @@ export default function Editor({ onMusePick, loading = false, soundEnabled = fal
       Placeholder.configure({ placeholder: 'Begin writing…' }),
       FocusDepthExtension,
     ],
-    content: '',
+    content: loadDocument() ?? '',
     onSelectionUpdate: handleSelectionUpdate,
+    onUpdate: ({ editor: e }) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => saveDocument(e.getHTML()), 800)
+    },
     editorProps: {
       attributes: {
         class: 'focus:outline-none min-h-[60vh]',

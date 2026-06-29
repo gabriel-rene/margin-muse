@@ -10,6 +10,7 @@ import { type PersonaId } from '@/lib/personas'
 import { callMuse } from '@/lib/muse-client'
 import { type MuseNoteData } from '@/lib/types'
 import { initAudio, playMuseArrivalSound } from '@/lib/sound'
+import { saveNotes, loadNotes } from '@/lib/storage'
 
 export default function Home() {
   const [tone, setTone] = useState<PaperTone>(DEFAULT_TONE)
@@ -18,6 +19,16 @@ export default function Home() {
   const [soundEnabled, setSoundEnabled] = useState(false)
   const marginRailRef = useRef<HTMLElement>(null)
   const audioRef = useRef<AudioContext | null>(null)
+
+  // Load notes on mount
+  useEffect(() => {
+    setNotes(loadNotes())
+  }, [])
+
+  // Persist notes on every change
+  useEffect(() => {
+    saveNotes(notes)
+  }, [notes])
 
   useEffect(() => {
     const tokens = PAPER_TONES[tone]
@@ -71,6 +82,10 @@ export default function Home() {
     setNotes((prev) => prev.filter((n) => n.id !== id))
   }
 
+  function clearAllNotes() {
+    setNotes([])
+  }
+
   return (
     <main className="flex min-h-screen gap-8 px-8 py-12 max-w-6xl mx-auto">
       <div className="flex-1 min-w-0">
@@ -81,7 +96,7 @@ export default function Home() {
           audioCtx={audioRef.current}
         />
       </div>
-      <MarginRail notes={notes} onDismiss={dismissNote} railRef={marginRailRef} />
+      <MarginRail notes={notes} onDismiss={dismissNote} railRef={marginRailRef} onClearAll={notes.length > 1 ? clearAllNotes : undefined} />
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
         <PaperToneSwitch tone={tone} onChange={setTone} />
         <SoundToggle enabled={soundEnabled} onChange={handleSoundChange} />
