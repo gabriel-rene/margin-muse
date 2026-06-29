@@ -1,10 +1,11 @@
+import { type Ref } from 'react'
 import MuseNote from '@/components/MuseNote'
 import { type MuseNoteData } from '@/lib/types'
 
 interface Props {
   notes: MuseNoteData[]
   onDismiss: (id: string) => void
-  railRef?: React.Ref<HTMLElement>
+  railRef?: Ref<HTMLElement>
 }
 
 export default function MarginRail({ notes, onDismiss, railRef }: Props) {

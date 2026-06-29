@@ -19,6 +19,9 @@ export default function MuseNote({ note, onDismiss }: Props) {
         top: note.anchorTop,
         fontFamily: 'var(--font-muse)',
         color: 'var(--paper-muse-ink)',
+        // Tie the card's marker to the muse voice rather than Tailwind's
+        // default gray, so it reads as part of the warm paper, not UI chrome.
+        borderColor: 'var(--paper-muse-ink)',
       }}
       className="w-64 text-xs leading-relaxed border-l-2 pl-3 py-1 group"
     >
