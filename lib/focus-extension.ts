@@ -17,25 +17,41 @@ export const FocusDepthExtension = Extension.create({
             if (!tr.docChanged && !tr.selectionSet) return _old
 
             const { $from } = newState.selection
-            const currentPos = $from.before($from.depth > 0 ? $from.depth : 1)
-            const decorations: Decoration[] = []
+            // Position of the top-level block containing the cursor. Depth 1
+            // is always the direct child of the doc root (paragraph, list,
+            // heading…), so before(1) gives the block's start offset — which
+            // matches the offsets doc.forEach yields. Using $from.depth here
+            // instead would point at the innermost nested node and never
+            // match a top-level offset (lists/blockquotes would break).
+            // Fall back to the raw position for depth-0 selections.
+            const currentBlockPos = $from.depth >= 1 ? $from.before(1) : $from.pos
 
+            // First pass: index every top-level block, locate the cursor's.
+            const blocks: { pos: number; size: number; isParagraph: boolean }[] = []
+            let currentIndex = -1
             newState.doc.forEach((node, offset) => {
-              if (node.type.name !== 'paragraph') return
+              if (offset === currentBlockPos) currentIndex = blocks.length
+              blocks.push({
+                pos: offset,
+                size: node.nodeSize,
+                isParagraph: node.type.name === 'paragraph',
+              })
+            })
 
-              const distance = Math.abs(offset - currentPos)
-              let focus: string
+            // Second pass: classify paragraphs by paragraph-distance (block
+            // index), not character distance, so adjacent paragraphs read as
+            // "near" regardless of length — the spec's "1–2 away are softer".
+            const decorations: Decoration[] = []
+            blocks.forEach((block, index) => {
+              if (!block.isParagraph) return
 
-              if (distance === 0) {
-                focus = 'current'
-              } else if (distance <= 200) {
-                focus = 'near'
-              } else {
-                focus = 'far'
-              }
+              const distance =
+                currentIndex === -1 ? Infinity : Math.abs(index - currentIndex)
+              const focus =
+                distance === 0 ? 'current' : distance <= 2 ? 'near' : 'far'
 
               decorations.push(
-                Decoration.node(offset, offset + node.nodeSize, {
+                Decoration.node(block.pos, block.pos + block.size, {
                   'data-focus': focus,
                 })
               )
