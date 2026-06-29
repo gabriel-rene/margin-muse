@@ -9,10 +9,11 @@ import MusePicker from '@/components/MusePicker'
 import { type PersonaId } from '@/lib/personas'
 
 interface Props {
-  onMusePick?: (persona: PersonaId, selectedText: string, contextText: string) => void
+  onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
+  loading?: boolean
 }
 
-export default function Editor({ onMusePick }: Props) {
+export default function Editor({ onMusePick, loading = false }: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
 
@@ -43,15 +44,26 @@ export default function Editor({ onMusePick }: Props) {
   })
 
   function handlePick(persona: PersonaId) {
+    if (!pickerRect) return
+    // Pass raw viewport top — page.tsx converts to rail-relative offset
+    const anchorViewportTop = pickerRect.top
     setPickerRect(null)
     const context = editor?.getText() ?? ''
-    onMusePick?.(persona, selectedText, context)
+    onMusePick?.(persona, selectedText, context, anchorViewportTop)
   }
 
   return (
     <div className="editor-wrap relative">
+      {loading && (
+        <div
+          style={{ fontFamily: 'var(--font-muse)', color: 'var(--paper-muse-ink)' }}
+          className="absolute top-0 right-0 text-xs opacity-50 animate-pulse"
+        >
+          thinking…
+        </div>
+      )}
       <EditorContent editor={editor} />
-      {pickerRect && (
+      {pickerRect && !loading && (
         <MusePicker
           anchorRect={pickerRect}
           onPick={handlePick}
