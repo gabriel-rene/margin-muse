@@ -28,14 +28,19 @@ export default function MusePicker({ anchorRect, onPick, onClose }: Props) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onClose])
 
-  const top = anchorRect.bottom + window.scrollY + 6
-  const left = anchorRect.left + window.scrollX
+  // anchorRect comes from getBoundingClientRect(), which is viewport-relative.
+  // Position the picker with `fixed` so those coordinates map directly to the
+  // viewport — independent of where the editor container sits on the page and
+  // of scroll offset. Using `absolute` here would place it relative to the
+  // nearest positioned ancestor (.editor-wrap), misaligning it by that offset.
+  const top = anchorRect.bottom + 6
+  const left = anchorRect.left
 
   return (
     <div
       ref={ref}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top,
         left,
         fontFamily: 'var(--font-muse)',
