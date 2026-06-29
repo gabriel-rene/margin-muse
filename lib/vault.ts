@@ -100,7 +100,7 @@ export async function readNote(root: string, id: string): Promise<NoteRecord> {
   const filename = await findNoteFile(root, id)
   const markdown = await readFile(vaultPath(root, filename), 'utf8')
   const parsed = parseMarkdownFile(markdown, filename)
-  const bodyWithoutTitle = parsed.body.replace(/^# .+\n\n?/, '').replace(/\n## Muse Notes\n[\s\S]*$/, '')
+  const bodyWithoutTitle = parsed.body.replace(/^# .+\n\n?/, '').replace(/\n<!-- muse-notes -->[\s\S]*$/, '')
   return {
     ...parsed.meta,
     markdown,

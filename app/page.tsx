@@ -126,11 +126,22 @@ export default function Home() {
     const draft = loadDocument()
     if (!draft) return
     const note = await createNoteClient('Imported Draft')
+    const plainText = draft
+      .replace(/<\/(p|div|h[1-6]|li)[^>]*>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .trim()
+    const paragraphs = plainText.split(/\n+/).map(s => s.trim()).filter(Boolean)
     const imported: NoteRecord = {
       ...note,
       content: {
         type: 'doc',
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: draft.replace(/<[^>]+>/g, '') }] }],
+        content: paragraphs.length > 0
+          ? paragraphs.map(text => ({
+              type: 'paragraph',
+              content: [{ type: 'text', text }],
+            }))
+          : [{ type: 'paragraph' }],
       },
     }
     await saveNoteClient(imported.id, {

@@ -208,7 +208,7 @@ export function buildMarkdownFile({
   ].join('\n')
   const titleHeading = `# ${meta.title || 'Untitled'}`
   const museSection = museNotes.length
-    ? `\n\n## Muse Notes\n\n${museNotes
+    ? `\n\n<!-- muse-notes -->\n\n## Muse Notes\n\n${museNotes
         .map((note) => {
           const created = new Date(note.createdAt).toISOString().replace('T', ' ').slice(0, 16)
           return `### ${created} - ${note.persona}\n\n> ${note.question}`
