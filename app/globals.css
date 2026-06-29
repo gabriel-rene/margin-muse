@@ -3,25 +3,56 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --paper-bg: #f0ead8;
+  --paper-ink: #2c2520;
+  --paper-muse-ink: #7a6a58;
+  --paper-grain-opacity: 0.045;
+  --font-prose: 'EB Garamond', Georgia, serif;
+  --font-muse: 'Inter', system-ui, sans-serif;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--paper-bg);
+  color: var(--paper-ink);
+  font-family: var(--font-prose);
+  transition: background-color 0.4s ease, color 0.2s ease;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Letterpress depth — static emboss on all prose text */
+.editor-wrap .tiptap p,
+.editor-wrap .tiptap h1,
+.editor-wrap .tiptap h2,
+.editor-wrap .tiptap h3 {
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.45),
+    0 -1px 0 rgba(0,0,0,0.18);
+}
+
+/* Paper grain overlay via pseudo-element on body */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: var(--paper-grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* Editor prose typography */
+.editor-wrap .tiptap {
+  font-family: var(--font-prose);
+  font-size: 1.2rem;
+  line-height: 1.85;
+  color: var(--paper-ink);
+}
+
+.editor-wrap .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--paper-muse-ink);
+  opacity: 0.5;
+  pointer-events: none;
+  height: 0;
 }

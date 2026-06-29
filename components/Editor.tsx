@@ -13,7 +13,7 @@ export default function Editor() {
     content: '',
     editorProps: {
       attributes: {
-        class: 'prose max-w-none focus:outline-none min-h-[60vh]',
+        class: 'focus:outline-none min-h-[60vh]',
       },
     },
   })
