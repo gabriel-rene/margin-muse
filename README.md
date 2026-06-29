@@ -24,6 +24,24 @@ npm install
 npm run dev      # http://localhost:3000
 ```
 
+The local writing, Markdown, rich-text, and versioning features work without an Anthropic key. AI/muse integration remains optional and can be wired in later.
+
+## Local Markdown vault
+
+The writing experience saves notes locally as Markdown.
+
+- Default vault: `./notes/`
+- Current note: `notes/<title>.md`
+- Manual snapshots: `notes/.versions/<note-slug>/<timestamp>.md`
+
+You can point the app at another local folder later with:
+
+```bash
+MUSE_VAULT_DIR="/path/to/ObsidianVault/Margin Muse" npm run dev
+```
+
+This is intended for trusted local runs. Do not expose the local file API routes publicly.
+
 Other commands:
 
 ```bash
