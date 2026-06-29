@@ -6,7 +6,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { FocusDepthExtension } from '@/lib/focus-extension'
 import MusePicker from '@/components/MusePicker'
-import EditorToolbar from '@/components/EditorToolbar'
 import { type PersonaId } from '@/lib/personas'
 import { playTypingSound } from '@/lib/sound'
 import { EMPTY_TIPTAP_DOC, type TiptapDoc } from '@/lib/note-types'
@@ -32,7 +31,6 @@ export default function Editor({
 }: Props) {
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
   const [selectedText, setSelectedText] = useState('')
-  const [historyTick, setHistoryTick] = useState(0)
   const applyingExternalContent = useRef(false)
   const lastContentKey = useRef<string | null>(null)
 
@@ -56,7 +54,6 @@ export default function Editor({
     content: content ?? EMPTY_TIPTAP_DOC,
     onSelectionUpdate: handleSelectionUpdate,
     onUpdate: ({ editor: e }) => {
-      setHistoryTick((value) => value + 1)
       if (!applyingExternalContent.current) {
         onContentChange(e.getJSON() as TiptapDoc)
       }
@@ -93,13 +90,6 @@ export default function Editor({
 
   return (
     <div className="editor-wrap relative">
-      <EditorToolbar
-        editor={editor}
-        canUndo={historyTick >= 0 && Boolean(editor?.can().undo())}
-        canRedo={historyTick >= 0 && Boolean(editor?.can().redo())}
-        onUndo={() => editor?.chain().focus().undo().run()}
-        onRedo={() => editor?.chain().focus().redo().run()}
-      />
       {loading && (
         <div
           style={{ fontFamily: 'var(--font-muse)', color: 'var(--paper-muse-ink)' }}

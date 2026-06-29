@@ -7,7 +7,6 @@ import NotesPanel from '@/components/NotesPanel'
 import PaperToneSwitch from '@/components/PaperToneSwitch'
 import SoundToggle from '@/components/SoundToggle'
 import TitleField from '@/components/TitleField'
-import VersionsPanel from '@/components/VersionsPanel'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { DEFAULT_TONE, PAPER_TONES, type PaperTone } from '@/lib/paper'
 import { type PersonaId } from '@/lib/personas'
@@ -16,28 +15,28 @@ import { initAudio, playMuseArrivalSound } from '@/lib/sound'
 import { loadDocument, loadNotes, saveNotes } from '@/lib/storage'
 import {
   createNoteClient,
+  deleteNoteClient,
   listNotesClient,
-  listVersionsClient,
   readNoteClient,
   saveNoteClient,
-  snapshotNoteClient,
 } from '@/lib/notes-client'
-import { EMPTY_TIPTAP_DOC, type NoteMeta, type NoteRecord, type TiptapDoc, type VersionMeta } from '@/lib/note-types'
+import { EMPTY_TIPTAP_DOC, type NoteMeta, type NoteRecord, type TiptapDoc } from '@/lib/note-types'
 import { type MuseNoteData } from '@/lib/types'
 
 export default function Home() {
   const [tone, setTone] = useState<PaperTone>(DEFAULT_TONE)
   const [notes, setNotes] = useState<NoteMeta[]>([])
-  const [versions, setVersions] = useState<VersionMeta[]>([])
   const [activeNote, setActiveNote] = useState<NoteRecord | null>(null)
   const [museNotes, setMuseNotes] = useState<MuseNoteData[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [canImportDraft, setCanImportDraft] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const marginRailRef = useRef<HTMLElement>(null)
   const audioRef = useRef<AudioContext | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bootedRef = useRef(false)
 
   async function refreshNotes() {
     const nextNotes = await listNotesClient()
@@ -49,16 +48,19 @@ export default function Home() {
     const note = await readNoteClient(id)
     setActiveNote(note)
     setMuseNotes(note.museNotes)
-    setVersions(await listVersionsClient(note.id))
   }
 
   useEffect(() => {
+    if (bootedRef.current) return
+    bootedRef.current = true
+
     async function boot() {
       try {
         const nextNotes = await refreshNotes()
         setCanImportDraft(Boolean(loadDocument()) && nextNotes.length === 0)
-        if (nextNotes[0]) await openNote(nextNotes[0].id)
-        if (!nextNotes[0]) {
+        if (nextNotes[0]) {
+          await openNote(nextNotes[0].id)
+        } else {
           const created = await createNoteClient('Untitled')
           await refreshNotes()
           await openNote(created.id)
@@ -79,6 +81,14 @@ export default function Home() {
   useEffect(() => {
     saveNotes(museNotes)
   }, [museNotes])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && sidebarOpen) setSidebarOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [sidebarOpen])
 
   function queueSave(nextNote: NoteRecord) {
     setActiveNote(nextNote)
@@ -114,12 +124,20 @@ export default function Home() {
     const note = await createNoteClient('Untitled')
     await refreshNotes()
     await openNote(note.id)
+    setSidebarOpen(false)
   }
 
-  async function handleSnapshot() {
-    if (!activeNote) return
-    await snapshotNoteClient(activeNote.id)
-    setVersions(await listVersionsClient(activeNote.id))
+  async function handleDeleteNote(id: string) {
+    try {
+      await deleteNoteClient(id)
+    } catch {
+      // file may already be gone — still sync the list
+    }
+    const nextNotes = await refreshNotes()
+    if (activeNote?.id === id) {
+      if (nextNotes[0]) await openNote(nextNotes[0].id)
+      else setActiveNote(null)
+    }
   }
 
   async function handleImportDraft() {
@@ -152,6 +170,7 @@ export default function Home() {
     setCanImportDraft(false)
     await refreshNotes()
     await openNote(imported.id)
+    setSidebarOpen(false)
   }
 
   function handleSoundChange(v: boolean) {
@@ -195,13 +214,21 @@ export default function Home() {
     setMuseNotes([])
   }
 
+  function formatNoteMeta() {
+    if (saving === 'saving') return 'saving…'
+    if (saving === 'error') return 'not saved'
+    if (!activeNote) return ''
+    return new Date(activeNote.updated).toLocaleString('en-US', {
+      month: 'long', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit',
+    })
+  }
+
   const paper = (
-    <>
+    <div className="paper-content">
       <div className="paper-header">
         <TitleField title={activeNote?.title ?? ''} onChange={handleTitleChange} />
-        <div className="save-state" aria-live="polite">
-          {saving === 'saving' ? 'saving...' : saving === 'error' ? 'not saved' : activeNote ? `saved ${new Date(activeNote.updated).toLocaleTimeString()}` : ''}
-        </div>
+        <div className="note-meta" aria-live="polite">{formatNoteMeta()}</div>
       </div>
       <div className="paper-body">
         <Editor
@@ -220,23 +247,24 @@ export default function Home() {
           onClearAll={museNotes.length > 1 ? clearAllNotes : undefined}
         />
       </div>
-    </>
+    </div>
   )
 
   return (
     <WorkspaceShell
-      notesPanel={
+      sidebar={
         <NotesPanel
           notes={notes}
           activeNoteId={activeNote?.id ?? null}
-          onSelect={openNote}
+          onSelect={(id) => { openNote(id); setSidebarOpen(false) }}
           onCreate={handleCreateNote}
+          onDelete={handleDeleteNote}
           onImportDraft={canImportDraft ? handleImportDraft : undefined}
         />
       }
-      versionsPanel={
-        <VersionsPanel versions={versions} onSnapshot={handleSnapshot} disabled={!activeNote} />
-      }
+      sidebarOpen={sidebarOpen}
+      onToggleSidebar={() => setSidebarOpen(v => !v)}
+      onCloseSidebar={() => setSidebarOpen(false)}
       paper={paper}
       controls={
         <>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getVaultRoot, readNote, saveNote } from '@/lib/vault'
+import { deleteNote, getVaultRoot, readNote, saveNote } from '@/lib/vault'
 import { type SaveNoteInput } from '@/lib/note-types'
 
 export const runtime = 'nodejs'
@@ -43,5 +43,14 @@ export async function PUT(req: Request, { params }: Params) {
     return NextResponse.json(note)
   } catch {
     return NextResponse.json({ error: 'Unable to save note' }, { status: 500 })
+  }
+}
+
+export async function DELETE(_req: Request, { params }: Params) {
+  try {
+    await deleteNote(getVaultRoot(), params.id)
+    return NextResponse.json({})
+  } catch {
+    return NextResponse.json({ error: 'Note not found' }, { status: 404 })
   }
 }

@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
 import path from 'path'
 import {
   buildMarkdownFile,
@@ -151,6 +151,21 @@ export async function snapshotNote(root: string, id: string, date = new Date()):
     created: date.toISOString(),
     title: note.title,
   }
+}
+
+export async function deleteNote(root: string, id: string): Promise<void> {
+  await ensureVault(root)
+  const files = await readdir(root)
+  let deleted = false
+  for (const file of files.filter((f) => f.endsWith('.md'))) {
+    const markdown = await readFile(vaultPath(root, file), 'utf8')
+    const parsed = parseMarkdownFile(markdown, file)
+    if (parsed.meta.id === id || parsed.meta.slug === id) {
+      await unlink(vaultPath(root, file))
+      deleted = true
+    }
+  }
+  if (!deleted) throw new Error('Note not found')
 }
 
 export async function listVersions(root: string, id: string): Promise<VersionMeta[]> {

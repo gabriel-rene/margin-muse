@@ -7,34 +7,42 @@ interface Props {
   activeNoteId: string | null
   onSelect: (id: string) => void
   onCreate: () => void
+  onDelete: (id: string) => void
   onImportDraft?: () => void
 }
 
-export default function NotesPanel({ notes, activeNoteId, onSelect, onCreate, onImportDraft }: Props) {
+export default function NotesPanel({ notes, activeNoteId, onSelect, onCreate, onDelete, onImportDraft }: Props) {
   return (
-    <aside className="notes-panel" aria-label="Local notes">
-      <div className="panel-kicker">Notes</div>
-      <button type="button" className="panel-action" onClick={onCreate}>
-        New note
-      </button>
-      {onImportDraft && (
-        <button type="button" className="panel-action subtle" onClick={onImportDraft}>
-          Import current draft
-        </button>
-      )}
-      <div className="panel-list">
-        {notes.map((note) => (
-          <button
-            key={note.id}
-            type="button"
-            className={note.id === activeNoteId ? 'panel-row active' : 'panel-row'}
-            onClick={() => onSelect(note.id)}
-          >
-            <span>{note.title}</span>
-            <time>{new Date(note.updated).toLocaleDateString()}</time>
-          </button>
-        ))}
+    <>
+      <div className="sidebar-header">
+        <span className="sidebar-heading">Notes</span>
+        <button type="button" className="sidebar-create" onClick={onCreate} aria-label="New note">+</button>
       </div>
-    </aside>
+      <div className="sidebar-body">
+        {onImportDraft && (
+          <button type="button" className="sidebar-import" onClick={onImportDraft}>
+            Import draft
+          </button>
+        )}
+        <div className="sidebar-list">
+          {notes.map((note) => (
+            <div key={note.id} className={`sidebar-note${note.id === activeNoteId ? ' active' : ''}`}>
+              <button
+                type="button"
+                className="sidebar-note-delete"
+                onClick={(e) => { e.stopPropagation(); onDelete(note.id) }}
+                aria-label={`Delete ${note.title}`}
+              >
+                −
+              </button>
+              <button type="button" className="sidebar-note-body" onClick={() => onSelect(note.id)}>
+                <span className="sidebar-note-title">{note.title || 'Untitled'}</span>
+                <time className="sidebar-note-date">{new Date(note.updated).toLocaleDateString()}</time>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }

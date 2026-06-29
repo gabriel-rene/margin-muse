@@ -47,3 +47,8 @@ export async function snapshotNoteClient(id: string): Promise<VersionMeta> {
     method: 'POST',
   })
 }
+
+export async function deleteNoteClient(id: string): Promise<void> {
+  const res = await fetch(`/api/notes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`Notes API error: ${res.status}`)
+}
