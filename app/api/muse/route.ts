@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenAI } from '@google/genai'
 import { PERSONAS, type PersonaId } from '@/lib/personas'
 import { validateMuseOutput } from '@/lib/muse-validation'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' })
 
 // This route is an unauthenticated proxy to a paid API. Bound every input so a
 // hostile caller can't run up token cost or DoS the parser with a huge body.
@@ -43,26 +43,25 @@ export async function POST(req: NextRequest) {
   const boundedContext =
     typeof context === 'string' ? context.slice(0, MAX_CONTEXT_CHARS) : ''
   const userMessage = boundedContext
-    ? `Document context (do not comment on this, only use it to understand the selected passage):\n\n${boundedContext}\n\n---\n\nSelected passage:\n\n${text}`
-    : `Selected passage:\n\n${text}`
+    ? `Document context (do not comment on this, only use it to understand the selected passage):\n\n${boundedContext}\n\n---\n\nSelected passage:\n\n${text}\n\n---\n\nRespond in the same language as the selected passage.`
+    : `Selected passage:\n\n${text}\n\n---\n\nRespond in the same language as the selected passage.`
 
   try {
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 200,
-      system: personaDef.systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: userMessage,
+      config: {
+        systemInstruction: personaDef.systemPrompt,
+        maxOutputTokens: 1024,
+      },
     })
 
-    const first = message.content[0]
-    const raw = first && first.type === 'text' ? first.text.trim() : null
+    const raw = (result.text ?? '').trim() || null
     const question = raw ? validateMuseOutput(raw) : null
 
     return NextResponse.json({ question, persona })
-  } catch {
-    // Anthropic call failed (network, auth, rate limit, overload). Surface a
-    // clean 500 rather than an opaque unhandled error; the muse pull is a
-    // best-effort augmentation, so the client can fail quietly.
+  } catch (err) {
+    console.error('[muse] Gemini error:', err)
     return NextResponse.json({ error: 'Muse unavailable' }, { status: 500 })
   }
 }

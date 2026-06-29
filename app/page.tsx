@@ -23,6 +23,17 @@ import {
 import { EMPTY_TIPTAP_DOC, type NoteMeta, type NoteRecord, type TiptapDoc } from '@/lib/note-types'
 import { type MuseNoteData } from '@/lib/types'
 
+const MIN_NOTE_GAP = 90
+
+function safeAnchorTop(existing: MuseNoteData[], desired: number): number {
+  const positions = existing.map((n) => n.anchorTop).sort((a, b) => a - b)
+  let top = desired
+  for (const pos of positions) {
+    if (Math.abs(top - pos) < MIN_NOTE_GAP) top = pos + MIN_NOTE_GAP
+  }
+  return top
+}
+
 export default function Home() {
   const [tone, setTone] = useState<PaperTone>(DEFAULT_TONE)
   const [notes, setNotes] = useState<NoteMeta[]>([])
@@ -193,7 +204,7 @@ export default function Home() {
               id: crypto.randomUUID(),
               persona,
               question: result.question!,
-              anchorTop,
+              anchorTop: safeAnchorTop(prev, anchorTop),
               createdAt: Date.now(),
             },
           ])
