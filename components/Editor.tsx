@@ -79,7 +79,7 @@ export default function Editor({
     if (lastContentKey.current === contentKey) return
     lastContentKey.current = contentKey
     applyingExternalContent.current = true
-    editor.commands.setContent(content)
+    editor.commands.setContent(content, false)
     applyingExternalContent.current = false
   }, [content, contentKey, editor])
 
@@ -95,8 +95,8 @@ export default function Editor({
     <div className="editor-wrap relative">
       <EditorToolbar
         editor={editor}
-        canUndo={Boolean(editor?.can().undo()) && historyTick >= 0}
-        canRedo={Boolean(editor?.can().redo()) && historyTick >= 0}
+        canUndo={historyTick >= 0 && Boolean(editor?.can().undo())}
+        canRedo={historyTick >= 0 && Boolean(editor?.can().redo())}
         onUndo={() => editor?.chain().focus().undo().run()}
         onRedo={() => editor?.chain().focus().redo().run()}
       />
