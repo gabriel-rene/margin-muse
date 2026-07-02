@@ -55,6 +55,18 @@ MUSE_VAULT_DIR="/path/to/ObsidianVault/Margin Muse" npm run dev
 
 This is intended for trusted local runs. Do not expose the local file API routes publicly.
 
+## Put it on your taskbar
+
+Margin Muse is an installable PWA backed by a local server that starts at login. On macOS:
+
+```bash
+bash scripts/autostart/install-macos.sh   # serves http://localhost:3323 at every login
+```
+
+Then open that URL and install it (Chrome/Edge: install icon in the address bar; Safari: File → Add to Dock…) — you get a dock/taskbar icon that opens Margin Muse in its own window. Windows and Linux instructions, port changes, and uninstall: [`docs/local-install.md`](docs/local-install.md).
+
+To have your notes on every machine, set `MUSE_VAULT_DIR` to a cloud-synced folder (iCloud/Dropbox/Obsidian vault).
+
 Other commands:
 
 ```bash
