@@ -10,21 +10,34 @@ This repository implements **v1 — The Paper and the Muse**. See [`MARGIN_MUSE_
 - **Focus depth** — the paragraph your cursor is in stays crisp; paragraphs further away dim and slightly blur. One motion effect, per paragraph.
 - **The Muse** — select text, pick a persona (Skeptic / Reader / Creative Director), get one anchored question in the right margin. Dismissible. The muse never rewrites your prose — enforced in the persona prompts *and* by a deterministic output guard.
 - **Sound** (off by default) — soft wood-and-felt typing taps with pitch/timing jitter, plus a distinct chime when the muse's question arrives. Web Audio only.
-- **Persistence** — your document and open notes survive a refresh (localStorage; no database in v1).
+- **Persistence** — notes (including margin questions) are saved as local Markdown files in the vault and survive refreshes and restarts.
 
 ## Running it
 
 ```bash
 npm install
 
-# The muse calls the Anthropic API server-side. Put a real key in .env.local:
-#   ANTHROPIC_API_KEY=sk-ant-...
-# (the file is gitignored; the key is never sent to the client)
+# Configure a muse provider in .env.local (copy .env.example).
+# Default is Gemini:
+#   GEMINI_API_KEY=...
+# (the file is gitignored; the key is read only on the server)
 
 npm run dev      # http://localhost:3000
 ```
 
-The local writing, Markdown, rich-text, and versioning features work without an Anthropic key. AI/muse integration remains optional and can be wired in later.
+The local writing, Markdown, rich-text, and versioning features work without any muse provider configured; only muse pulls need one.
+
+## Muse providers: Gemini, Ollama, or LM Studio
+
+The muse can run against the hosted Gemini API or fully local models — set `MUSE_PROVIDER` in `.env.local`:
+
+| Provider | Setup | Default endpoint / model |
+|---|---|---|
+| `gemini` (default) | `GEMINI_API_KEY` from [AI Studio](https://aistudio.google.com/apikey) | `gemini-2.5-flash` |
+| `ollama` | `ollama serve` + `ollama pull llama3.2` | `http://localhost:11434`, `llama3.2` |
+| `lmstudio` | Load a model, start the local server | `http://localhost:1234`, whatever is loaded |
+
+Optional overrides: `MUSE_MODEL` (model tag/name) and `MUSE_LOCAL_URL` (non-default host/port). Local providers speak the OpenAI-compatible `/v1/chat/completions` API, need no key, and nothing leaves your machine. Reasoning models (deepseek-r1, qwen3, …) work — `<think>` blocks are stripped before the output guard runs.
 
 ## Local Markdown vault
 
@@ -45,16 +58,17 @@ This is intended for trusted local runs. Do not expose the local file API routes
 Other commands:
 
 ```bash
-npm test         # Vitest — 28 unit tests (paper, personas, validation, sound, storage)
+npm test         # Vitest unit tests (vault, markdown, personas, validation, providers, sound, storage)
 npm run build    # production build / type-check
 ```
 
-The model is `claude-sonnet-4-6`, hardcoded server-side in `app/api/muse/route.ts`. Without a valid `ANTHROPIC_API_KEY`, the paper surface, focus depth, sound, tones, and persistence all work; only the muse pull will return an error (handled gracefully — the editor never wedges).
+Without a configured provider, the paper surface, focus depth, sound, tones, and persistence all work; only the muse pull will report that the muse is unavailable (the editor never wedges).
 
 ## Architecture
 
 - `app/page.tsx` — two-column shell, owns tone / notes / loading / sound state.
-- `app/api/muse/route.ts` — the only place the Anthropic key and SDK live. Validates the persona, calls the model, runs the output through the guard.
+- `app/api/muse/route.ts` — validates the persona and input bounds, calls the configured provider, runs the output through the guard.
+- `lib/muse-provider.ts` — provider abstraction: Gemini (hosted) or Ollama / LM Studio (local, OpenAI-compatible endpoint). API keys live only here and in env.
 - `lib/personas.ts` — the three persona system prompts (one lens each, one question or null, no rewriting).
 - `lib/muse-validation.ts` — deterministic guard that rejects replacement-copy signals and over-long output.
 - `lib/focus-extension.ts` — Tiptap/ProseMirror decoration for per-paragraph focus depth.

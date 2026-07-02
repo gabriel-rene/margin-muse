@@ -37,3 +37,6 @@ next-env.d.ts
 
 # project
 .superpowers/
+
+# local markdown vault (personal writing — never commit)
+/notes/
