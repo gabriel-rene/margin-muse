@@ -16,6 +16,7 @@ interface Props {
   onContentChange: (content: TiptapDoc) => void
   onMusePick?: (persona: PersonaId, selectedText: string, contextText: string, anchorViewportTop: number) => void
   loading?: boolean
+  error?: string | null
   soundEnabled?: boolean
   audioCtx?: AudioContext | null
 }
@@ -26,6 +27,7 @@ export default function Editor({
   onContentChange,
   onMusePick,
   loading = false,
+  error = null,
   soundEnabled = false,
   audioCtx = null,
 }: Props) {
@@ -96,6 +98,15 @@ export default function Editor({
           className="absolute top-0 right-0 text-xs opacity-50 animate-pulse"
         >
           thinking…
+        </div>
+      )}
+      {!loading && error && (
+        <div
+          role="status"
+          style={{ fontFamily: 'var(--font-muse)', color: 'var(--paper-muse-ink)' }}
+          className="absolute top-0 right-0 text-xs opacity-70"
+        >
+          {error}
         </div>
       )}
       <EditorContent editor={editor} />

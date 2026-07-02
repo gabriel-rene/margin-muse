@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenAI } from '@google/genai'
 import { PERSONAS, type PersonaId } from '@/lib/personas'
+import { generateMuseQuestion, getMuseProviderConfig } from '@/lib/muse-provider'
 import { validateMuseOutput } from '@/lib/muse-validation'
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' })
 
 // This route is an unauthenticated proxy to a paid API. Bound every input so a
 // hostile caller can't run up token cost or DoS the parser with a huge body.
@@ -46,22 +44,15 @@ export async function POST(req: NextRequest) {
     ? `Document context (do not comment on this, only use it to understand the selected passage):\n\n${boundedContext}\n\n---\n\nSelected passage:\n\n${text}\n\n---\n\nRespond in the same language as the selected passage.`
     : `Selected passage:\n\n${text}\n\n---\n\nRespond in the same language as the selected passage.`
 
-  try {
-    const result = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: userMessage,
-      config: {
-        systemInstruction: personaDef.systemPrompt,
-        maxOutputTokens: 1024,
-      },
-    })
+  const providerConfig = getMuseProviderConfig()
 
-    const raw = (result.text ?? '').trim() || null
+  try {
+    const raw = await generateMuseQuestion(providerConfig, personaDef.systemPrompt, userMessage)
     const question = raw ? validateMuseOutput(raw) : null
 
     return NextResponse.json({ question, persona })
   } catch (err) {
-    console.error('[muse] Gemini error:', err)
+    console.error(`[muse] ${providerConfig.provider} error:`, err)
     return NextResponse.json({ error: 'Muse unavailable' }, { status: 500 })
   }
 }

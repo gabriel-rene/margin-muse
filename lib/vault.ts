@@ -1,9 +1,11 @@
-import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'fs/promises'
 import path from 'path'
 import {
+  MUSE_NOTES_MARKER,
   buildMarkdownFile,
   markdownToTiptapDoc,
   parseMarkdownFile,
+  parseMuseNotesSection,
   slugifyTitle,
   timestampForFilename,
   tiptapDocToMarkdown,
@@ -100,12 +102,14 @@ export async function readNote(root: string, id: string): Promise<NoteRecord> {
   const filename = await findNoteFile(root, id)
   const markdown = await readFile(vaultPath(root, filename), 'utf8')
   const parsed = parseMarkdownFile(markdown, filename)
-  const bodyWithoutTitle = parsed.body.replace(/^# .+\n\n?/, '').replace(/\n<!-- muse-notes -->[\s\S]*$/, '')
+  const bodyWithoutTitle = parsed.body
+    .replace(/^# .+\n\n?/, '')
+    .replace(new RegExp(`\\n${MUSE_NOTES_MARKER}[\\s\\S]*$`), '')
   return {
     ...parsed.meta,
     markdown,
     content: markdownToTiptapDoc(bodyWithoutTitle),
-    museNotes: [],
+    museNotes: parseMuseNotesSection(parsed.body),
   }
 }
 
@@ -124,11 +128,16 @@ export async function saveNote(root: string, id: string, input: SaveNoteInput): 
 
   if (current.filename !== meta.filename) {
     try {
+      // Another note already owns the target filename — pick a free one.
       await stat(vaultPath(root, meta.filename))
       meta.slug = await uniqueSlug(root, nextSlug)
       meta.filename = `${meta.slug}.md`
+    } catch {}
+    await rename(vaultPath(root, current.filename), vaultPath(root, meta.filename))
+    try {
+      await rename(vaultPath(root, '.versions', current.slug), vaultPath(root, '.versions', meta.slug))
     } catch {
-      await rename(vaultPath(root, current.filename), vaultPath(root, meta.filename))
+      // no snapshots for this note yet
     }
   }
 
@@ -162,6 +171,7 @@ export async function deleteNote(root: string, id: string): Promise<void> {
     const parsed = parseMarkdownFile(markdown, file)
     if (parsed.meta.id === id || parsed.meta.slug === id) {
       await unlink(vaultPath(root, file))
+      await rm(vaultPath(root, '.versions', parsed.meta.slug), { recursive: true, force: true })
       deleted = true
     }
   }

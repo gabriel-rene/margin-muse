@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, rm } from 'fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat } from 'fs/promises'
 import os from 'os'
 import path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   createNote,
+  deleteNote,
   getVaultRoot,
   listNotes,
   listVersions,
@@ -12,7 +13,14 @@ import {
   snapshotNote,
   vaultPath,
 } from '@/lib/vault'
-import { EMPTY_TIPTAP_DOC } from '@/lib/note-types'
+import { EMPTY_TIPTAP_DOC, type TiptapDoc } from '@/lib/note-types'
+
+function paragraphDoc(text: string): TiptapDoc {
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  }
+}
 
 let root: string
 
@@ -63,6 +71,70 @@ describe('vault notes', () => {
 
     const file = await readFile(path.join(root, 'renamed-draft.md'), 'utf8')
     expect(file).toContain('Hello')
+  })
+
+  it('renaming into a title collision keeps a single file for the note', async () => {
+    await createNote(root, { title: 'Alpha' })
+    const beta = await createNote(root, { title: 'Beta' })
+
+    await saveNote(root, beta.id, {
+      title: 'Alpha',
+      content: paragraphDoc('now called alpha'),
+    })
+
+    const files = (await readdir(root)).filter((f) => f.endsWith('.md'))
+    expect(files.sort()).toEqual(['alpha-2.md', 'alpha.md'])
+
+    const read = await readNote(root, beta.id)
+    expect(read.title).toBe('Alpha')
+    expect(read.content.content?.[0]?.content?.[0]?.text).toBe('now called alpha')
+    expect(await listNotes(root)).toHaveLength(2)
+  })
+
+  it('persists and restores muse notes across save/read cycles', async () => {
+    const note = await createNote(root, { title: 'With Muse' })
+    await saveNote(root, note.id, {
+      title: 'With Muse',
+      content: paragraphDoc('The prose.'),
+      museNotes: [
+        {
+          id: 'm1',
+          persona: 'skeptic',
+          question: 'What backs this claim?',
+          anchorTop: 42,
+          createdAt: Date.parse('2026-06-29T13:04:00.000Z'),
+        },
+      ],
+    })
+
+    const restored = await readNote(root, note.id)
+    expect(restored.museNotes).toHaveLength(1)
+    expect(restored.museNotes[0].question).toBe('What backs this claim?')
+    // The body must not leak the muse section into the editor content.
+    const text = JSON.stringify(restored.content)
+    expect(text).not.toContain('Muse Notes')
+
+    // A later save without muse notes clears the section intentionally
+    // (dismissals persist), not by accident.
+    await saveNote(root, note.id, {
+      title: 'With Muse',
+      content: paragraphDoc('The prose.'),
+      museNotes: [],
+    })
+    const cleared = await readNote(root, note.id)
+    expect(cleared.museNotes).toEqual([])
+  })
+
+  it('moves snapshots when a note is renamed and removes them on delete', async () => {
+    const note = await createNote(root, { title: 'History' })
+    await snapshotNote(root, note.id, new Date('2026-06-29T13:04:22.000Z'))
+
+    await saveNote(root, note.id, { title: 'Renamed History', content: paragraphDoc('x') })
+    const versions = await listVersions(root, note.id)
+    expect(versions).toHaveLength(1)
+
+    await deleteNote(root, note.id)
+    await expect(stat(vaultPath(root, '.versions', 'renamed-history'))).rejects.toThrow()
   })
 
   it('creates manual snapshots', async () => {

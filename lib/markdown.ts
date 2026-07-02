@@ -1,6 +1,9 @@
 import MarkdownIt from 'markdown-it'
 import { EMPTY_TIPTAP_DOC, type NoteMeta, type TiptapDoc, type TiptapMark, type TiptapNode } from '@/lib/note-types'
+import { PERSONAS, type PersonaId } from '@/lib/personas'
 import { type MuseNoteData } from '@/lib/types'
+
+export const MUSE_NOTES_MARKER = '<!-- muse-notes -->'
 
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false })
 
@@ -20,6 +23,17 @@ export function timestampForFilename(date = new Date()): string {
 
 function escapeYamlValue(value: string): string {
   if (/[:#\n\r]/.test(value)) return JSON.stringify(value)
+  return value
+}
+
+function unescapeYamlValue(value: string): string {
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value.replace(/^"|"$/g, '')
+    }
+  }
   return value
 }
 
@@ -88,13 +102,18 @@ export function tiptapDocToMarkdown(doc: TiptapDoc): string {
     .join('\n\n')
 }
 
+function unescapeMarkdownText(value: string): string {
+  return value.replace(/\\([\\*_])/g, '$1')
+}
+
 function textNode(text: string, marks?: TiptapMark[]): TiptapNode {
-  return marks?.length ? { type: 'text', text, marks } : { type: 'text', text }
+  const unescaped = unescapeMarkdownText(text)
+  return marks?.length ? { type: 'text', text: unescaped, marks } : { type: 'text', text: unescaped }
 }
 
 function inlineMarkdownToNodes(text: string): TiptapNode[] {
   const nodes: TiptapNode[] = []
-  const pattern = /(\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\(([^)]+)\))/g
+  const pattern = /((?<!\\)\*\*([^*]+?)(?<!\\)\*\*|(?<!\\)\*([^*]+?)(?<!\\)\*|\[([^\]]+)\]\(([^)]+)\))/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = pattern.exec(text))) {
@@ -105,7 +124,7 @@ function inlineMarkdownToNodes(text: string): TiptapNode[] {
     lastIndex = match.index + match[0].length
   }
   if (lastIndex < text.length) nodes.push(textNode(text.slice(lastIndex)))
-  return nodes.length ? nodes : [{ type: 'text', text }]
+  return nodes.length ? nodes : [textNode(text)]
 }
 
 export function markdownToTiptapDoc(markdown: string): TiptapDoc {
@@ -168,7 +187,7 @@ export function parseMarkdownFile(markdown: string, filename: string): { meta: N
       .split('\n')
       .map((line) => line.match(/^([^:]+):\s*(.*)$/))
       .filter((line): line is RegExpMatchArray => Boolean(line))
-      .map((line) => [line[1].trim(), line[2].trim().replace(/^"|"$/g, '')])
+      .map((line) => [line[1].trim(), unescapeYamlValue(line[2].trim())])
   )
   const title = values.title || filename.replace(/\.md$/, '')
   const slug = values.slug || slugifyTitle(title)
@@ -184,6 +203,41 @@ export function parseMarkdownFile(markdown: string, filename: string): { meta: N
     },
     body,
   }
+}
+
+/**
+ * Space multiple restored notes down the rail. The original pixel anchor is a
+ * frozen viewport measurement that can't be reconstructed from the file, so
+ * restored notes stack top-down in creation order instead.
+ */
+const RESTORED_NOTE_GAP = 96
+
+export function parseMuseNotesSection(body: string): MuseNoteData[] {
+  const markerIndex = body.indexOf(MUSE_NOTES_MARKER)
+  if (markerIndex === -1) return []
+  const section = body.slice(markerIndex)
+  const notes: MuseNoteData[] = []
+  const entryPattern = /^### (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) - (\S+)\n+((?:> .*(?:\n|$))+)/gm
+  let match: RegExpExecArray | null
+  while ((match = entryPattern.exec(section))) {
+    const persona = match[2]
+    if (!(persona in PERSONAS)) continue
+    const question = match[3]
+      .split('\n')
+      .map((line) => line.replace(/^> ?/, '').trim())
+      .filter(Boolean)
+      .join(' ')
+    if (!question) continue
+    const createdAt = Date.parse(`${match[1].replace(' ', 'T')}:00.000Z`)
+    notes.push({
+      id: crypto.randomUUID(),
+      persona: persona as PersonaId,
+      question,
+      anchorTop: notes.length * RESTORED_NOTE_GAP,
+      createdAt: Number.isNaN(createdAt) ? Date.now() : createdAt,
+    })
+  }
+  return notes
 }
 
 export function buildMarkdownFile({
@@ -208,7 +262,7 @@ export function buildMarkdownFile({
   ].join('\n')
   const titleHeading = `# ${meta.title || 'Untitled'}`
   const museSection = museNotes.length
-    ? `\n\n<!-- muse-notes -->\n\n## Muse Notes\n\n${museNotes
+    ? `\n\n${MUSE_NOTES_MARKER}\n\n## Muse Notes\n\n${museNotes
         .map((note) => {
           const created = new Date(note.createdAt).toISOString().replace('T', ' ').slice(0, 16)
           return `### ${created} - ${note.persona}\n\n> ${note.question}`
