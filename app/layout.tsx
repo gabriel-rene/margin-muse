@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { EB_Garamond, Inter } from 'next/font/google'
 import './globals.css'
 
@@ -17,6 +17,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Margin Muse',
   description: 'A writing editor where AI augments thinking.',
+  appleWebApp: {
+    capable: true,
+    title: 'Margin Muse',
+    statusBarStyle: 'default',
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#f0ead8',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
